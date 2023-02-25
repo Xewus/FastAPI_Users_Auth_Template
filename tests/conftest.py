@@ -25,6 +25,7 @@ test_engine = create_async_engine(
 TestSession = sessionmaker(
     bind=test_engine,
     class_=AsyncSession,
+    expire_on_commit=False,
     autoflush=False,
     autocommit=False
 )

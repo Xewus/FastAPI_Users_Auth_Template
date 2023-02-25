@@ -133,7 +133,6 @@ async def update_users_me(
         update_data.avatar = None
         new_avatar = True
 
-    db.expunge(current_user)
     err = await orm.update(
         db, current_user.id, update_data.dict(exclude_none=True)
     )
