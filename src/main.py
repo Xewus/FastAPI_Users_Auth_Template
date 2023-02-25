@@ -9,7 +9,7 @@ app = FastAPI(
     contact={'xewus': 'xewus@ya.ru'}
 )
 
-app.include_router(users_router, tags=('Users',))
+app.include_router(users_router, tags=['Users'])
 
 
 @app.on_event('startup')

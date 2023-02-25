@@ -57,26 +57,25 @@ async def sign(
         raise UserExistException(detail=err)
 
     if new_user.avatar is not None:
-        avatar: Avatar = await Avatar(
+        avatar = await Avatar(
             new_user.avatar, str(user.id), avatars_dir
         )
         if avatar.image is None:
             raise AvatarException(status.HTTP_201_CREATED)
 
-        update_data = UpdateUserScheme(avatars_dir=str(avatar.save_dir))
-        background_tasks.add_task(
-            orm.update, db, user.id, update_data.dict(exclude_none=True)
-        )
+        update_data = {'avatars_dir': str(avatar.save_dir)}
+        background_tasks.add_task(orm.update, db, user.id, update_data)
         background_tasks.add_task(avatar.save_resized_avatars)
 
     user = await orm.get_user_by_phone(db, user.phone)
     response_user = ResponseUserScheme.from_orm(user)
     if user.avatars_dir is not None:
-        avatar: Path = Path(
+        image = Path(
             ''.join((user.avatars_dir, '/', MIN_AVATAR, '.png'))
         )
-        if avatar.exists():
-            response_user.avatar = base64.b64encode(avatar.read_bytes())
+        if image.exists():
+            response_user.avatar = base64.b64encode(image.read_bytes())
+
     return response_user
 
 
@@ -125,20 +124,21 @@ async def update_users_me(
     new_avatar = False
     if update_data.avatar is not None:
         media_root = get_avatars_root()
-        avatar = Avatar(update_data.avatar, str(current_user.id), media_root)
+        avatar = await Avatar(
+            update_data.avatar, str(current_user.id), media_root
+        )
         if avatar.image is None:
             raise AvatarException
 
-        update_data.avatars_dir = str(avatar.save_dir)
-        update_data.avatar = None
         new_avatar = True
 
-    err = await orm.update(
-        db, current_user.id, update_data.dict(exclude_none=True)
-    )
+    update_dict = update_data.dict(exclude_none=True)
+    if new_avatar:
+        background_tasks.add_task(avatar.save_resized_avatars)
+        update_dict['avatar_dir'] = str(avatar.save_dir)
+
+    err = await orm.update(db, current_user.id, update_dict)
     if err is not None:
         raise UserExistException(detail=err)
 
-    if new_avatar:
-        background_tasks.add_task(avatar.save_resized_avatars)
     return await orm.get(db, current_user.id)

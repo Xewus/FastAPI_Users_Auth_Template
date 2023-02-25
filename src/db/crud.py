@@ -29,7 +29,7 @@ class CRUD:
         try:
             await db.commit()
         except IntegrityError as err:
-            return None, err.args[0].split('.')[-1]
+            return err.args[0].split('.')[-1]
 
     async def update(
         self, db: AsyncSession, obj_id: int, update_data: dict

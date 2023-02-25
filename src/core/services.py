@@ -14,7 +14,7 @@ class Avatar:
     """Managing user avatars.
     """
     sizes: list[tuple[int, int]] = AVATAR_SIZES
-    save_dir: str
+    save_dir: Path
     image: Path | None
 
     async def __init__(
