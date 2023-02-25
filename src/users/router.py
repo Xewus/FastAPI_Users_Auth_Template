@@ -3,17 +3,28 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.exceptions import (AvatarException, InvalidLoginDataException,
-                                 UserExistException)
+from src.core.exceptions import (
+    AvatarException,
+    InvalidLoginDataException,
+    UserExistException,
+)
 from src.core.services import Avatar, get_avatars_root
 from src.db.database import get_db
-from src.users.authentication import (authenticate_user, create_access_token,
-                                      get_active_user, get_hash_password)
+from src.users.authentication import (
+    authenticate_user,
+    create_access_token,
+    get_active_user,
+    get_hash_password,
+)
 from src.users.forms import PhoneAuthForm
 from src.users.models import UserTable, orm
-from src.users.schemas import (CreateUserSchema, DbUserSchema,
-                               ResponseUserSchema, TokenSchema,
-                               UpdateUserSchema)
+from src.users.schemas import (
+    CreateUserSchema,
+    DbUserSchema,
+    ResponseUserSchema,
+    TokenSchema,
+    UpdateUserSchema,
+)
 
 router = APIRouter()
 
