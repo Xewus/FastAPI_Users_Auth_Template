@@ -9,8 +9,17 @@ class PhoneAuthForm:
     def __init__(
         self,
         grant_type: str = Form(default=None, regex="password"),
-        username: str = Form(),
-        password: str = Form(),
+        username: str = Form(
+            title='Phone number',
+            description='The phone number is used for registration.',
+            min_length=11,
+            max_length=11,
+        ),
+        password: str = Form(
+            title='Password for authorization',
+            min_length=8,
+            max_length=64,
+        ),
         scope: str = Form(default=""),
         client_id: str | None = Form(default=None),
         client_secret: str | None = Form(default=None),

@@ -1,8 +1,10 @@
+import base64
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import AVATAR_SIZES
 from src.core.exceptions import (
     AvatarException,
     InvalidLoginDataException,
@@ -18,31 +20,33 @@ from src.users.authentication import (
 )
 from src.users.forms import PhoneAuthForm
 from src.users.models import UserTable, orm
-from src.users.schemas import (
-    CreateUserSchema,
-    DbUserSchema,
-    ResponseUserSchema,
-    TokenSchema,
-    UpdateUserSchema,
+from src.users.schemes import (
+    CreateUserScheme,
+    DbUserScheme,
+    ResponseUserScheme,
+    TokenScheme,
+    UpdateUserScheme,
 )
+
+MIN_AVATAR = str(min(AVATAR_SIZES)[0])
 
 router = APIRouter()
 
 
 @router.post(
     path='/registration',
-    response_model=ResponseUserSchema,
+    response_model=ResponseUserScheme,
     status_code=status.HTTP_201_CREATED,
     summary='Registering a new user',
     response_model_exclude_none=True,
 )
 async def sign(
-    new_user: CreateUserSchema,
+    new_user: CreateUserScheme,
     background_tasks: BackgroundTasks,
     avatars_dir: Path = Depends(get_avatars_root),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    user = DbUserSchema(
+    user = DbUserScheme(
         username=new_user.username,
         phone=new_user.phone,
         password=get_hash_password(new_user.password),
@@ -59,35 +63,43 @@ async def sign(
         if avatar.image is None:
             raise AvatarException(status.HTTP_201_CREATED)
 
-        update_data = UpdateUserSchema(avatars_dir=str(avatar.save_dir))
+        update_data = UpdateUserScheme(avatars_dir=str(avatar.save_dir))
         background_tasks.add_task(
             orm.update, db, user.id, update_data.dict(exclude_none=True)
         )
         background_tasks.add_task(avatar.save_resized_avatars)
 
-    return await orm.get_user_by_phone(db, user.phone)
+    user = await orm.get_user_by_phone(db, user.phone)
+    response_user = ResponseUserScheme.from_orm(user)
+    if user.avatars_dir is not None:
+        avatar: Path = Path(
+            ''.join((user.avatars_dir, '/', MIN_AVATAR, '.png'))
+        )
+        if avatar.exists():
+            response_user.avatar = base64.b64encode(avatar.read_bytes())
+    return response_user
 
 
 @router.post(
     path='/token',
-    response_model=TokenSchema,
+    response_model=TokenScheme,
     summary='Obtaining an access token'
 )
 async def get_access_token(
     form: PhoneAuthForm = Depends(),
     db: AsyncSession = Depends(get_db)
-) -> TokenSchema:
+) -> TokenScheme:
     user = await authenticate_user(db, form.username, form.password)
     if user is None:
         raise InvalidLoginDataException
 
     access_token = create_access_token(data={'sub': str(user.phone)})
-    return TokenSchema(access_token=access_token)
+    return TokenScheme(access_token=access_token)
 
 
 @router.get(
     path='/users/me',
-    response_model=ResponseUserSchema,
+    response_model=ResponseUserScheme,
     summary='Get the user who is the owner of the token',
     response_model_exclude_none=True,
 )
@@ -97,12 +109,12 @@ async def read_users_me(current_user: UserTable = Depends(get_active_user)):
 
 @router.patch(
     path='/users/me',
-    response_model=ResponseUserSchema,
+    response_model=ResponseUserScheme,
     summary='Self-update the user',
     response_model_exclude_none=True,
 )
 async def update_users_me(
-    update_data: UpdateUserSchema,
+    update_data: UpdateUserScheme,
     background_tasks: BackgroundTasks,
     current_user: UserTable = Depends(get_active_user),
     db: AsyncSession = Depends(get_db)

@@ -10,7 +10,7 @@ from src.config import settings
 from src.core.exceptions import CredentialsException, NotActiveUserException
 from src.db.database import get_db
 from src.users.models import UserTable, orm
-from src.users.schemas import TokenDataSchema
+from src.users.schemes import PhoneScheme
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
@@ -119,7 +119,7 @@ async def get_current_user(
         phone = payload.get('sub')
         if phone is None:
             raise CredentialsException
-        token_data = TokenDataSchema(phone=phone)
+        token_data = PhoneScheme(phone=phone)
     except JWTError:
         raise CredentialsException
 
