@@ -47,7 +47,7 @@ def temp_dirs():
 
     yield TEMP_AVATARS_DIR
 
-    # shutil.rmtree(TEMP_MEDIA_DIR)
+    shutil.rmtree(TEMP_MEDIA_DIR)
 
 
 async def get_test_db() -> AsyncSession:
