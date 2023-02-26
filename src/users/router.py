@@ -1,10 +1,8 @@
-import base64
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import AVATAR_SIZES
 from src.core.exceptions import (
     AvatarException,
     InvalidLoginDataException,
@@ -28,8 +26,6 @@ from src.users.schemes import (
     UpdateUserScheme,
 )
 
-MIN_AVATAR = str(min(AVATAR_SIZES)[0])
-
 router = APIRouter()
 
 
@@ -46,13 +42,13 @@ async def sign(
     avatars_dir: Path = Depends(get_avatars_root),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    user = DbUserScheme(
+    db_user = DbUserScheme(
         username=new_user.username,
         phone=new_user.phone,
         password=get_hash_password(new_user.password),
         is_active=True,
     )
-    err = await orm.create(db, user.dict())
+    user, err = await orm.create(db, db_user.dict(), refresh=True)
     if err is not None:
         raise UserExistException(detail=err)
 
@@ -61,22 +57,11 @@ async def sign(
             new_user.avatar, str(user.id), avatars_dir
         )
         if avatar.image is None:
-            raise AvatarException(status.HTTP_201_CREATED)
+            raise AvatarException(status.HTTP_206_PARTIAL_CONTENT)
 
-        update_data = {'avatars_dir': str(avatar.save_dir)}
-        background_tasks.add_task(orm.update, db, user.id, update_data)
         background_tasks.add_task(avatar.save_resized_avatars)
 
-    user = await orm.get_user_by_phone(db, user.phone)
-    response_user = ResponseUserScheme.from_orm(user)
-    if user.avatars_dir is not None:
-        image = Path(
-            ''.join((user.avatars_dir, '/', MIN_AVATAR, '.png'))
-        )
-        if image.exists():
-            response_user.avatar = base64.b64encode(image.read_bytes())
-
-    return response_user
+    return user
 
 
 @router.post(
@@ -102,15 +87,21 @@ async def get_access_token(
     summary='Get the user who is the owner of the token',
     response_model_exclude_none=True,
 )
-async def read_users_me(current_user: UserTable = Depends(get_active_user)):
-    return current_user
+async def read_users_me(
+    current_user: UserTable = Depends(get_active_user),
+    avatars_dir: Path = Depends(get_avatars_root)
+):
+    user = ResponseUserScheme.from_orm(current_user)
+    user.avatar = await Avatar.base64_min_avatar(
+        avatars_dir, str(current_user.id)
+    )
+    return user
 
 
 @router.patch(
     path='/users/me',
-    response_model=ResponseUserScheme,
     summary='Self-update the user',
-    response_model_exclude_none=True,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def update_users_me(
     update_data: UpdateUserScheme,
@@ -121,24 +112,20 @@ async def update_users_me(
     if update_data.password:
         update_data.password = get_hash_password(update_data.password)
 
-    new_avatar = False
     if update_data.avatar is not None:
-        media_root = get_avatars_root()
+        avatars_root = get_avatars_root()
         avatar = await Avatar(
-            update_data.avatar, str(current_user.id), media_root
+            update_data.avatar, str(current_user.id), avatars_root
         )
         if avatar.image is None:
             raise AvatarException
 
-        new_avatar = True
-
-    update_dict = update_data.dict(exclude_none=True)
-    if new_avatar:
         background_tasks.add_task(avatar.save_resized_avatars)
-        update_dict['avatar_dir'] = str(avatar.save_dir)
 
-    err = await orm.update(db, current_user.id, update_dict)
-    if err is not None:
-        raise UserExistException(detail=err)
+    update_dict = update_data.dict(exclude_none=True, exclude={'avatar'})
+    if update_dict:
+        err = await orm.update(db, current_user.id, update_dict)
+        if err is not None:
+            raise UserExistException(detail=err)
 
-    return await orm.get(db, current_user.id)
+    return None

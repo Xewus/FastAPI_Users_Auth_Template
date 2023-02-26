@@ -4,7 +4,7 @@ from binascii import Error as BinError
 from pathlib import Path
 
 from asyncinit import asyncinit
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from src.config import AVATAR_SIZES, AVATARS_DIR
 
@@ -14,6 +14,7 @@ class Avatar:
     """Managing user avatars.
     """
     sizes: list[tuple[int, int]] = AVATAR_SIZES
+    min_size_avatar: str = str(min(AVATAR_SIZES)[0]) + '.png'
     save_dir: Path
     image: Path | None
 
@@ -27,8 +28,10 @@ class Avatar:
         """Set attr `self.save_dir`.
 
         #### Args:
+          - avatars_dir (Path):
+            Shared directory for storing avatars.
           - user_id (str):
-            A unique user ID to create a unique directory
+            A unique user ID to create a unique directory.
             for saving user avatars.
         """
         self.save_dir = avatars_dir / user_id
@@ -47,8 +50,8 @@ class Avatar:
         """
         try:
             image = Image.open(io.BytesIO(base64.b64decode(base64_data)))
-        except BinError:
-            return
+        except (BinError, UnidentifiedImageError):
+            return None
 
         image_name = self.save_dir / 'original.png'
         image.save(image_name)
@@ -72,11 +75,34 @@ class Avatar:
         for size in self.sizes:
             await self._save_resized_image(size)
 
+    @classmethod
+    async def base64_min_avatar(
+        cls, avatars_dir: Path, user_id: str
+    ) -> bytes | None:
+        """Returns the minimum avatar as `base64` if it exists.
+
+        #### Args:
+          - avatars_dir (Path):
+            Shared directory for storing avatars.
+          - user_id (str):
+            Unique user ID for avatar search.
+
+        #### Returns:
+          - bytes | None:
+            Avatar as base64 if it exists.
+        """
+        avatar = avatars_dir / user_id / cls.min_size_avatar
+        if not avatar.exists():
+            return None
+
+        with open(avatar, 'rb') as img:
+            return base64.b64encode(img.read())
+
 
 def get_avatars_root() -> Path:
     """Returns the path to the avatars directory to use depending on.
 
-    Returns:
+    #### Returns:
       - Path:
         The path to the avatars directory.
     """

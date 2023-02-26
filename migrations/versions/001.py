@@ -1,15 +1,16 @@
 """001
 
-Revision ID: a5dd6b595c51
+Revision ID: e6d013ef8720
 Revises: 
-Create Date: 2023-02-25 16:46:27.143876
+Create Date: 2023-02-26 21:15:35.391824
 
 """
 from alembic import op
 import sqlalchemy as sa
 
+
 # revision identifiers, used by Alembic.
-revision = 'a5dd6b595c51'
+revision = 'e6d013ef8720'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,7 +25,6 @@ def upgrade() -> None:
     sa.Column('password', sa.String(length=128), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('is_staff', sa.Boolean(), nullable=False),
-    sa.Column('avatars_dir', sa.String(length=128), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_user_id'), 'user', ['id'], unique=False)

@@ -92,10 +92,6 @@ class DbUserScheme(BaseUserScheme):
     password: str = Field(
         description='Hashed password.',
     )
-    avatars_dir: str | None = Field(
-        default=None,
-        title='Directory with avatars',
-    )
 
     class Config:
         orm_mode = True
@@ -131,3 +127,15 @@ class UpdateUserScheme(BaseModel):
         title='Avatar image`',
         description='`base64` image format.',
     )
+
+    @validator('password')
+    def simple_password_validator(cls, password: str | None) -> str | None:
+        if password is not None or len(set(password)) < len(password) >> 1:
+            raise ValueError('Password is too simple')
+        return password
+
+    @validator('avatar')
+    def avatar_validator(cls, avatar: bytes | None) -> bytes | None:
+        if avatar and len(avatar) != len(avatar) >> 2 << 2:
+            raise ValueError('Avatar is invalid')
+        return avatar

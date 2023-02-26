@@ -14,25 +14,17 @@ class UserTable(Base):
     password = Column(String(128), name='password', nullable=False)
     is_active = Column(Boolean, default=False, nullable=False)
     is_staff = Column(Boolean, default=False, nullable=False)
-    avatars_dir = Column(String(128))
 
 
 class UserCRUD(CRUD):
     """The set of `CRUD` operations for model `UserTable`.
     """
+    async def create(
+            self, db: AsyncSession, new_obj: dict, refresh: bool = False
+    ) -> tuple[UserTable, None] | tuple[None, str]:
+        return await super().create(db, new_obj, refresh)
+
     async def get(self, db: AsyncSession, id: int) -> UserTable | None:
-        """Get a user by ID.
-
-        #### Args:
-          - db (AsyncSession):
-            Connecting to the database.
-          - id (int):
-            User ID.
-
-        #### Returns:
-          - UserTable | None:
-            The user object from the database if it exist else None.
-        """
         return await super().get(db, id)
 
     async def get_user_by_phone(

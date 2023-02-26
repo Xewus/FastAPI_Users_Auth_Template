@@ -39,7 +39,7 @@ def get_hash_password(password: str) -> str:
       - password (str):
         Password for hashing.
 
-    Returns:
+    #### Returns:
       - str:
         The hash of the password.
     """
@@ -76,7 +76,8 @@ def create_access_token(data: dict[str, str]) -> str:
         Data for creating a token.
 
     #### Returns:
-      - str: JWT token.
+      - str:
+        JWT token.
     """
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(
@@ -126,6 +127,7 @@ async def get_current_user(
     user = await orm.get_user_by_phone(db, int(token_data.phone))
     if user is None:
         raise CredentialsException
+
     return user
 
 
@@ -148,4 +150,5 @@ async def get_active_user(
     """
     if not user.is_active:
         raise NotActiveUserException
+
     return user
